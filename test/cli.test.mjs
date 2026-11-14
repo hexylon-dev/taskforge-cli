@@ -18,6 +18,7 @@ const USERS = [
   { id: 'u-r1', name: 'Rahul Shah', email: 'rahul.shah@acme.test', active: true, deletedAt: null, jobTitle: 'Backend', role: { name: 'Member' } },
   { id: 'u-r2', name: 'Rahul Patel', email: 'rpatel@acme.test', active: true, deletedAt: null, jobTitle: 'QA', role: { name: 'Member' } },
   { id: 'u-p', name: 'Priya Nair', email: 'priya@acme.test', active: true, deletedAt: null, jobTitle: 'Frontend', role: { name: 'Member' } },
+  { id: 'u-k', name: 'Kanji', email: 'priyanka.k@acme.test', active: true, deletedAt: null, jobTitle: 'Ops', role: { name: 'Member' } },
   { id: 'u-x', name: 'Old Timer', email: 'old@acme.test', active: false, deletedAt: null, role: { name: 'Member' } },
 ];
 const PROJECTS = [
@@ -172,7 +173,7 @@ test('whoami, users and projects return JSON; inactive users hidden', async () =
   const who = await run(['whoami'], { configDir });
   assert.equal(who.json.user.email, 'alex@acme.test');
   const users = await run(['users'], { configDir });
-  assert.equal(users.json.count, 4);
+  assert.equal(users.json.count, 5);
   assert.ok(!users.json.users.some((u) => u.email === 'old@acme.test'));
   const rahuls = await run(['users', 'rahul'], { configDir });
   assert.equal(rahuls.json.count, 2);
@@ -287,4 +288,27 @@ test('install-skill copies SKILL.md into a project .claude dir', async () => {
   const r = await run(['install-skill', '--project', dir], { configDir: tmpDir() });
   assert.equal(r.code, 0, r.stderr);
   assert.ok(fs.readFileSync(path.join(dir, '.claude', 'skills', 'taskforge', 'SKILL.md'), 'utf8').includes('name: taskforge'));
+});
+
+test('name matches win over email matches', async () => {
+  const configDir = await loggedIn();
+  // "priya" is a name-prefix of Priya Nair and an email-prefix of Kanji (priyanka.k@) → Priya wins.
+  const r = await run(['create', '--title', 'X', '--project', 'Website', '-a', 'priya', '--dry-run'], { configDir });
+  assert.equal(r.code, 0, r.stdout);
+  assert.equal(r.json.wouldCreate.assignees[0].id, 'u-p');
+  // An email-only match still works when no name matches.
+  const r2 = await run(['create', '--title', 'X', '--project', 'Website', '-a', 'priyanka', '--dry-run'], { configDir });
+  assert.equal(r2.code, 0, r2.stdout);
+  assert.equal(r2.json.wouldCreate.assignees[0].id, 'u-k');
+});
+
+test('estimate defaults to 1h when omitted, explicit estimate is kept', async () => {
+  const configDir = await loggedIn();
+  const r = await run(['create', '--title', 'No estimate', '--project', 'Website'], { configDir });
+  assert.equal(r.code, 0, r.stdout);
+  assert.equal(state.created.at(-1).estimatedMinutes, 60);
+  assert.equal(r.json.task.estimateDefaulted, true);
+  const r2 = await run(['create', '--title', 'With estimate', '--project', 'Website', '--estimate', '8h'], { configDir });
+  assert.equal(state.created.at(-1).estimatedMinutes, 480);
+  assert.equal(r2.json.task.estimateDefaulted, false);
 });

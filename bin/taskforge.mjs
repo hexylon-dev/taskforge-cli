@@ -11,7 +11,8 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
+const DEFAULT_ESTIMATE_MINUTES = 60; // used when no --estimate is given
 const PRIORITIES = ['urgent', 'high', 'normal', 'low'];
 const PRIORITY_ALIASES = { medium: 'normal', med: 'normal', critical: 'urgent', p0: 'urgent', p1: 'high', p2: 'normal', p3: 'low' };
 
@@ -239,7 +240,15 @@ function parseArgs(argv) {
 
 const norm = (s) => String(s ?? '').toLowerCase().trim();
 
-// Tiered match: exact id → exact key fields → prefix/word match → substring.
+const wordPrefix = (value, q) => {
+  const v = norm(value);
+  return v.startsWith(q) || v.split(/[\s._@-]+/).some((w) => w.startsWith(q));
+};
+
+// Tiered match, first tier with any hit wins:
+//   exact id → exact key fields → word-prefix per fuzzy group → substring per fuzzy group.
+// `fuzzy` is a list of field getters in priority order (e.g. name before email), so
+// "keval" picks the user *named* Keval over one whose email merely starts with "keval".
 // Returns exactly one item or throws a needs-input error with candidates.
 function resolveOne(items, query, { kind, exact, fuzzy, describe }) {
   const q = norm(query);
@@ -247,8 +256,8 @@ function resolveOne(items, query, { kind, exact, fuzzy, describe }) {
   const tiers = [
     items.filter((it) => norm(it.id) === q),
     items.filter((it) => exact(it).some((v) => norm(v) === q)),
-    items.filter((it) => fuzzy(it).some((v) => norm(v).split(/[\s._@-]+/).some((w) => w.startsWith(q)) || norm(v).startsWith(q))),
-    items.filter((it) => fuzzy(it).some((v) => norm(v).includes(q))),
+    ...fuzzy.map((get) => items.filter((it) => wordPrefix(get(it), q))),
+    ...fuzzy.map((get) => items.filter((it) => norm(get(it)).includes(q))),
   ];
   for (const hits of tiers) {
     if (hits.length === 1) return hits[0];
@@ -292,7 +301,7 @@ function makeContext(cfg) {
       return resolveOne(await ctx.users(), query, {
         kind: 'user',
         exact: (u) => [u.email, u.name, u.email?.split('@')[0]],
-        fuzzy: (u) => [u.name, u.email],
+        fuzzy: [(u) => u.name, (u) => u.email],
         describe: describeUser,
       });
     },
@@ -300,7 +309,7 @@ function makeContext(cfg) {
       return resolveOne(await ctx.projects(), query, {
         kind: 'project',
         exact: (p) => [p.name],
-        fuzzy: (p) => [p.name],
+        fuzzy: [(p) => p.name],
         describe: describeProject,
       });
     },
@@ -567,7 +576,10 @@ async function cmdCreate(flags) {
   const priority = parsePriority(flags.priority ?? pick('priority'));
   const dueDate = parseDate(flags.due ?? pick('due', 'dueDate', 'deadline'), 'due date');
   const startDate = parseDate(flags.start ?? pick('start', 'startDate'), 'start date');
-  const estimatedMinutes = parseEstimate(flags.estimate ?? pick('estimate', 'estimatedMinutes', 'estimateMinutes'));
+  // Companies can require an estimate (tasks.requireEstimate); default to 1h so a create never bounces on it.
+  const givenEstimate = parseEstimate(flags.estimate ?? pick('estimate', 'estimatedMinutes', 'estimateMinutes'));
+  const estimateDefaulted = givenEstimate === null;
+  const estimatedMinutes = givenEstimate ?? DEFAULT_ESTIMATE_MINUTES;
   const githubLink = flags.github ?? pick('github', 'githubLink');
   const parentTaskId = flags.parent ?? pick('parent', 'parentTaskId');
 
@@ -624,7 +636,8 @@ async function cmdCreate(flags) {
     priority: priority ?? '(company default)',
     dueDate: dueDate ?? null,
     startDate: startDate ?? null,
-    estimatedMinutes: estimatedMinutes ?? null,
+    estimatedMinutes,
+    estimateDefaulted,
   };
 
   if (flags['dry-run']) {
@@ -642,6 +655,7 @@ async function cmdCreate(flags) {
       dueDate: task.dueDate ?? null,
       startDate: task.startDate ?? null,
       estimatedMinutes: task.estimatedMinutes ?? null,
+      estimateDefaulted,
       project: describeProject(project),
       assignees: assignees.map(describeUser),
       createdBy: cfg.user ?? null,
@@ -692,7 +706,7 @@ Create (JSON output)
         --priority urgent|high|normal|low
         --due <date>       YYYY-MM-DD | "YYYY-MM-DD HH:mm" | ISO | today | tomorrow | +3d | +1w
         --start <date>
-        --estimate <dur>   90 | 90m | 2h | 1h30m | 1.5h
+        --estimate <dur>   90 | 90m | 2h | 1h30m | 1.5h   (default: 1h)
         --github <url>
         --parent <taskId>  Create as a subtask
         --field key=value  Custom field (repeatable; select fields take the option label)

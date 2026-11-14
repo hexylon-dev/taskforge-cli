@@ -1,6 +1,6 @@
 {
   "name": "taskforge-cli",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Task Forge command-line client — sign in to any Task Forge server and create/assign tasks from the terminal or from Claude Code",
   "type": "module",
   "bin": {

@@ -68,8 +68,9 @@ prints one JSON object to stdout: `{"ok": true, ...}` or `{"ok": false, "error":
 - `--due`, `--start` — `YYYY-MM-DD`, `"YYYY-MM-DD HH:mm"` (local), ISO-8601, `today`, `tomorrow`,
   `+3d`, `+1w`. Convert relative phrases like "next Friday" to an absolute `YYYY-MM-DD` yourself
   (check today's date first).
-- `--estimate` — minutes or `2h`, `1h30m`, `1.5h`. Some companies require an estimate; if the
-  server says "An estimate is required", ask the user or make a reasonable estimate and say so.
+- `--estimate` — minutes or `2h`, `1h30m`, `1.5h`. **Defaults to 1h** when omitted (some companies
+  require an estimate, so the CLI always sends one). Pass `--estimate` whenever the user states a
+  duration; if the result has `"estimateDefaulted": true`, mention that the 1h default was used.
 - `--field key=value` — custom fields (repeatable). Select/multiselect take option labels
   (multiselect: comma-separated). See `taskforge fields --project <p>`.
 - `--parent <taskId>` — create as a subtask.

@@ -105,12 +105,12 @@ taskforge create \
 
 | Option | Values |
 |---|---|
-| `-a, --assignee` | name, email, id, or `me`. Repeat for several assignees; the first is primary |
+| `-a, --assignee` | name, email, id, or `me`. Names beat emails, so `keval` picks the person named Keval. Repeat for several assignees; the first is primary |
 | `-p, --project` | project name (partial is fine if unique) or id. Optional if you only have one project |
 | `-d, --description` | free text |
 | `--priority` | `urgent`, `high`, `normal`, `low` (`medium` = normal) |
 | `--due`, `--start` | `YYYY-MM-DD`, `"YYYY-MM-DD HH:mm"`, ISO-8601, `today`, `tomorrow`, `+3d`, `+1w` |
-| `--estimate` | `90`, `90m`, `2h`, `1h30m`, `1.5h` |
+| `--estimate` | `90`, `90m`, `2h`, `1h30m`, `1.5h`. Defaults to **1h** if omitted |
 | `--field key=value` | custom field (repeatable). Select fields take the option label |
 | `--parent <taskId>` | create as a subtask |
 | `--github <url>` | link a PR/issue |
