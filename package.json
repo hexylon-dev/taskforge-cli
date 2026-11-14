@@ -1,0 +1,28 @@
+{
+  "name": "taskforge-cli",
+  "version": "1.0.0",
+  "description": "Task Forge command-line client — sign in to any Task Forge server and create/assign tasks from the terminal or from Claude Code",
+  "type": "module",
+  "bin": {
+    "taskforge": "bin/taskforge.mjs",
+    "taskforge-cli": "bin/taskforge.mjs"
+  },
+  "files": [
+    "bin",
+    "skill",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "keywords": [
+    "task-forge",
+    "cli",
+    "tasks",
+    "claude-code"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}
